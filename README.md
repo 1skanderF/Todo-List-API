@@ -1,0 +1,198 @@
+Task Manager API
+REST API для управления задачами (TODO) с аутентификацией через JWT-токены в cookies. Построен на FastAPI и AuthX.
+
+📋 Возможности
+✅ Регистрация пользователей с хешированием пароля (SHA-256 + соль)
+
+✅ Аутентификация через JWT-токены, хранящиеся в HttpOnly cookies
+
+✅ Создание, чтение, обновление и удаление задач (CRUD)
+
+✅ Изоляция задач по пользователям — каждый видит только свои задачи
+
+✅ Пагинация списка задач
+
+✅ Хранение данных в JSON-файлах (users.json, tasks.json)
+
+🛠️ Технологии
+Python 3.10+
+
+FastAPI — веб-фреймворк
+
+AuthX — JWT-аутентификация
+
+Pydantic — валидация данных
+
+Uvicorn — ASGI-сервер
+
+📦 Установка
+Клонируйте репозиторий:
+
+bash
+git clone <url-репозитория>
+cd <папка-проекта>
+Создайте виртуальное окружение и активируйте его:
+
+bash
+python -m venv venv
+source venv/bin/activate      # Linux/macOS
+venv\Scripts\activate         # Windows
+Установите зависимости:
+
+bash
+pip install fastapi uvicorn authx pydantic[email]
+(Опционально) Задайте секретный ключ JWT через переменную окружения:
+
+bash
+export JWT_SECRET_KEY="your-secret-key-minimum-32-characters-long!!!"
+Если переменная не задана, используется значение по умолчанию — не используйте его в production.
+
+🚀 Запуск
+bash
+uvicorn main:app --reload
+Приложение будет доступно по адресу: http://127.0.0.1:8000
+
+Интерактивная документация (Swagger UI): http://127.0.0.1:8000/docs
+
+📁 Структура данных
+users.json
+json
+[
+  {
+    "id": "a1b2c3...",
+    "name": "Иван",
+    "email": "ivan@example.com",
+    "password_hash": "salt:hash",
+    "created_at": "2025-01-01T00:00:00+00:00"
+  }
+]
+tasks.json
+json
+[
+  {
+    "id_u": "a1b2c3...",
+    "id_t": 1,
+    "title": "Купить хлеб",
+    "description": "Не забыть про молоко"
+  }
+]
+🔌 Эндпоинты
+Аутентификация
+POST /register — Регистрация
+Создаёт нового пользователя и сразу устанавливает cookie с JWT.
+
+Тело запроса:
+
+json
+{
+  "name": "Иван",
+  "email": "ivan@example.com",
+  "password": "securepassword"
+}
+Ответ 201 Created:
+
+json
+{
+  "token": "eyJhbGciOi...",
+  "user": {
+    "id": "a1b2c3...",
+    "name": "Иван",
+    "email": "ivan@example.com",
+    "created_at": "2025-01-01T00:00:00+00:00"
+  }
+}
+POST /login — Вход
+Аутентифицирует пользователя и устанавливает cookie с JWT.
+
+Тело запроса:
+
+json
+{
+  "email": "ivan@example.com",
+  "password": "securepassword"
+}
+Ответ 200 OK: аналогичен /register.
+
+Задачи
+🔒 Все эндпоинты ниже требуют наличия валидного JWT в cookie.
+
+POST /todos — Создать задачу
+Тело запроса:
+
+json
+{
+  "title": "Купить хлеб",
+  "description": "Не забыть про молоко"
+}
+Ответ 200 OK:
+
+json
+{
+  "id": 1,
+  "title": "Купить хлеб",
+  "description": "Не забыть про молоко"
+}
+GET /todos?page=1&limit=10 — Получить список задач
+Query-параметры:
+
+Параметр	Тип	Описание
+page	int	Номер страницы (≥ 1)
+limit	int	Кол-во задач на странице (≥ 1)
+Ответ 200 OK:
+
+json
+{
+  "data": [
+    { "id": 1, "title": "Купить хлеб", "description": "Не забыть про молоко" }
+  ],
+  "page": 1,
+  "limit": 10,
+  "total": 1
+}
+PUT /todos/{task_id} — Обновить задачу
+Тело запроса:
+
+json
+{
+  "title": "Купить хлеб и молоко",
+  "description": "Обновлённое описание"
+}
+Ответ 200 OK — обновлённая задача.
+
+Ошибки:
+
+403 Forbidden — задача не найдена или принадлежит другому пользователю.
+
+DELETE /todos/{task_id} — Удалить задачу
+Ответ 200 OK:
+
+json
+{
+  "status_code": 204,
+  "detail": "Task deleted successfully"
+}
+Ошибки:
+
+403 Forbidden — задача не найдена или принадлежит другому пользователю.
+
+🔐 Безопасность
+Пароли хранятся в виде salt:SHA256(salt + password) — не в открытом виде.
+
+JWT-токен устанавливается в HttpOnly cookie — недоступен из JavaScript (защита от XSS).
+
+Флаг samesite="lax" защищает от части CSRF-атак.
+
+Для production обязательно:
+
+Задайте JWT_SECRET_KEY через переменную окружения.
+
+Включите secure=True для cookie (только по HTTPS).
+
+Рассмотрите использование bcrypt/argon2 вместо SHA-256 для хеширования паролей.
+
+⚠️ Известные ограничения
+Данные хранятся в JSON-файлах — не подходит для многопоточных/многосерверных конфигураций.
+
+Хеширование пароля через SHA-256 без «work factor» уязвимо к брутфорсу. Для production используйте passlib с bcrypt.
+
+Отсутствует эндпоинт для выхода (/logout) — cookie нужно удалять вручную на клиенте.
